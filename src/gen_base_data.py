@@ -54,8 +54,7 @@ def parse_order_address(address_str):
     except:
         return (None, None)
 
-def main(current_time):
-    current_date = current_time[:10]
+def main(current_date):
     # 初始化 SparkSession
     spark = SparkSession.builder.appName("TaxiDataProcessing").getOrCreate()
     # 读取参数文件
@@ -183,6 +182,6 @@ def main(current_time):
 
 
 if __name__ == "__main__":
-    current_time = sys.argv[1]
+    current_date = sys.argv[1]
     # current_time = '2025-09-05 17:00:00'
-    main(current_time)
+    main(current_date)
