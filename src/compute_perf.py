@@ -24,7 +24,9 @@ def main(current_time):
     
     # df = spark.read.csv("file:///data/yuchi/common_memory/output_table/*.csv", header=True, inferSchema=True)
     file_dw_ride = f"/data/dw_ride_data/"
-    file_perf_ride = f"/data/dw_ride_data/partition_date={current_date}/"
+    file_perf_ride = f"/data/perf_ride_data/partition_date={current_date}/"
+    print(file_dw_ride)
+    print(file_perf_ride)
     df = spark.read.csv(file_dw_ride, header=True, inferSchema=True)
 
     df = df.withColumn("create_date", F.to_date("update_time"))
