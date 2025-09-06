@@ -18,10 +18,15 @@ def cal_wilson_score(pos, n):
 
 
 def main(current_time):
+    current_date = current_time[:10]
+
     spark = SparkSession.builder.appName("AddressPreference").getOrCreate()
     
-    df = spark.read.csv("file:///data/yuchi/common_memory/output_table/*.csv", header=True, inferSchema=True)
-    
+    # df = spark.read.csv("file:///data/yuchi/common_memory/output_table/*.csv", header=True, inferSchema=True)
+    file_dw_ride = f"/data/dw_ride_data/"
+    file_perf_ride = f"/data/dw_ride_data/partition_date={current_date}/"
+    df = spark.read.csv(file_dw_ride, header=True, inferSchema=True)
+
     df = df.withColumn("create_date", F.to_date("update_time"))
     df = df.withColumn("current_time", F.lit(current_time))
     df = df.withColumn("current_date", F.to_date("current_time"))
@@ -43,17 +48,17 @@ def main(current_time):
     df_user = df.groupBy("user_id").agg(F.sum("weight").alias("n_total"))
 
     df_rslt_from = df_from.join(df_user, ["user_id"]) \
-                   .withColumn("ratio_score", F.col("pos_from") / F.col("n_total"))
+                   .withColumn("percent_score", F.col("pos_from") / F.col("n_total"))
     df_rslt_to = df_to.join(df_user, ["user_id"]) \
-                 .withColumn("ratio_score", F.col("pos_to") / F.col("n_total"))
+                 .withColumn("percent_score", F.col("pos_to") / F.col("n_total"))
     df_rslt_from = df_rslt_from.withColumn("wilson_score", wilson_udf("pos_from", "n_total"))
     df_rslt_to = df_rslt_to.withColumn("wilson_score", wilson_udf("pos_to", "n_total"))
     df_rslt_from = df_rslt_from.groupBy("user_id").agg(
-        F.map_from_entries(F.collect_list(F.struct("from_address", "ratio_score"))).alias("preference_from_ratio"),
+        F.map_from_entries(F.collect_list(F.struct("from_address", "percent_score"))).alias("preference_from_percent"),
         F.map_from_entries(F.collect_list(F.struct("from_address", "wilson_score"))).alias("preference_from_wilson")
     )
     df_rslt_to = df_rslt_to.groupBy("user_id").agg(
-        F.map_from_entries(F.collect_list(F.struct("to_address", "ratio_score"))).alias("preference_to_ratio"),
+        F.map_from_entries(F.collect_list(F.struct("to_address", "percent_score"))).alias("preference_to_percent"),
         F.map_from_entries(F.collect_list(F.struct("to_address", "wilson_score"))).alias("preference_to_wilson")
     )
 
@@ -66,38 +71,38 @@ def main(current_time):
     df_user = df_address0.groupBy("user_id").agg(F.sum("pos_address").alias("n_total"))
 
     df_rslt_address = df_address.join(df_user, ["user_id"]) \
-                      .withColumn("ratio_score", F.col("pos_address") / F.col("n_total"))
+                      .withColumn("percent_score", F.col("pos_address") / F.col("n_total"))
     df_rslt_address = df_rslt_address.withColumn("wilson_score", wilson_udf("pos_address", "n_total"))
 
     df_rslt_address = df_rslt_address.groupBy("user_id").agg(
-        F.map_from_entries(F.collect_list(F.struct("address", "ratio_score"))).alias("preference_address_ratio"),
+        F.map_from_entries(F.collect_list(F.struct("address", "percent_score"))).alias("preference_address_percent"),
         F.map_from_entries(F.collect_list(F.struct("address", "wilson_score"))).alias("preference_address_wilson")
     )
 
 
     result_df = df_rslt_address.join(df_rslt_from, "user_id", "left").join(df_rslt_to, "user_id", "left").select(
         "user_id",
-        F.coalesce(df_rslt_address["preference_address_ratio"], F.create_map()).alias("preference_address_ratio"),
+        F.coalesce(df_rslt_address["preference_address_percent"], F.create_map()).alias("preference_address_percent"),
         F.coalesce(df_rslt_address["preference_address_wilson"], F.create_map()).alias("preference_address_wilson"),
-        F.coalesce(df_rslt_from["preference_from_ratio"], F.create_map()).alias("preference_from_ratio"),
+        F.coalesce(df_rslt_from["preference_from_percent"], F.create_map()).alias("preference_from_percent"),
         F.coalesce(df_rslt_from["preference_from_wilson"], F.create_map()).alias("preference_from_wilson"),
-        F.coalesce(df_rslt_to["preference_to_ratio"], F.create_map()).alias("preference_to_ratio"),
+        F.coalesce(df_rslt_to["preference_to_percent"], F.create_map()).alias("preference_to_percent"),
         F.coalesce(df_rslt_to["preference_to_wilson"], F.create_map()).alias("preference_to_wilson")
     )
-    result_df = result_df.withColumn("preference_address_ratio", F.to_json("preference_address_ratio")) \
+    result_df = result_df.withColumn("preference_address_percent", F.to_json("preference_address_percent")) \
                          .withColumn("preference_address_wilson", F.to_json("preference_address_wilson")) \
-                         .withColumn("preference_from_ratio", F.to_json("preference_from_ratio")) \
+                         .withColumn("preference_from_percent", F.to_json("preference_from_percent")) \
                          .withColumn("preference_from_wilson", F.to_json("preference_from_wilson")) \
-                         .withColumn("preference_to_ratio", F.to_json("preference_to_ratio")) \
+                         .withColumn("preference_to_percent", F.to_json("preference_to_percent")) \
                          .withColumn("preference_to_wilson", F.to_json("preference_to_wilson"))
 
 
-    result_df.write.mode("overwrite").csv("file:///data/yuchi/common_memory/output_perf", header=True)
+    result_df.write.mode("overwrite").csv(file_perf_ride, header=True)
     
     spark.stop()
 
 if __name__ == "__main__":
     # current_time = sys.argv[1]
-    current_time = '2025-09-05 17:00:00'
+    current_time = '2025-09-06 10:00:00'
     main(current_time)
     
