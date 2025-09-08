@@ -68,7 +68,7 @@ def proc_extract_address(msgs):
     for i in range(0, len(msgs), MAX_BATCH):
         batch_msgs = msgs[i:i+MAX_BATCH+2]
         rslt = extract_address_batch(batch_msgs, rslt)
-    return rslt
+    return rslt if rslt else None
 
 def main(current_date):
     # 初始化 SparkSession
@@ -80,8 +80,8 @@ def main(current_date):
     print(file_dw_label)
 
     proc_extract_address_udf = udf(proc_extract_address, StructType([
-        StructField("home", StringType(), True),
-        StructField("comp", StringType(), True)
+        StructField("address_home", StringType(), True),
+        StructField("address_company", StringType(), True)
     ]))
 
     df = spark.read.csv(file_chat_hist, header=True)
@@ -100,6 +100,11 @@ def main(current_date):
         col("user_id"),
         col("addresses.address_home").alias("address_home"),
         col("addresses.address_company").alias("address_company")
+    )
+
+    df_output = df_output.filter(
+        col("address_home").isNotNull() &
+        col("address_company").isNotNull()
     )
 
     df_output.show()
