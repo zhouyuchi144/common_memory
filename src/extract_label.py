@@ -91,19 +91,20 @@ def main(current_date):
         .orderBy(col("id"))
 
     # 按用户ID分组，收集消息历史
-    grouped_df = filtered_df.groupBy("user_id") \
+    grouped_df = filtered_df.groupBy("user_id", "intent_id") \
         .agg(collect_list(struct(col("role").alias("role"), col("msg").alias("msg"))).alias("messages"))
 
     # 提取地址信息
     df_output = grouped_df.withColumn("addresses", proc_extract_address_udf(col("messages"))) \
         .select(
         col("user_id"),
+        col("intent_id"),
         col("addresses.address_home").alias("address_home"),
         col("addresses.address_company").alias("address_company")
     )
 
     df_output = df_output.filter(
-        col("address_home").isNotNull() &
+        col("address_home").isNotNull() |
         col("address_company").isNotNull()
     )
 
