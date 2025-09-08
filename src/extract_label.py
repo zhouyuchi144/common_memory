@@ -71,7 +71,7 @@ def proc_extract_address(msgs):
 
 def main(current_date):
     # 初始化 SparkSession
-    spark = SparkSession.builder.appName("TaxiDataProcess").getOrCreate()
+    spark = SparkSession.builder.appName("ExtractUserProfileProcess").getOrCreate()
     # 读取参数文件
     file_chat_hist = f"/data/chat_hist/partition_date={current_date}/"
     file_dw_label = f"/data/dw_label/partition_date={current_date}/"
@@ -94,17 +94,22 @@ def main(current_date):
         .agg(collect_list(struct(col("role").alias("role"), col("msg").alias("msg"))).alias("messages"))
 
     # 提取地址信息
-    result_df = grouped_df.withColumn("addresses", proc_extract_address_udf(col("messages"))) \
+    df_output = grouped_df.withColumn("addresses", proc_extract_address_udf(col("messages"))) \
         .select(
         col("user_id"),
         col("addresses.address_home").alias("address_home"),
         col("addresses.address_company").alias("address_company")
     )
 
-    # 展示结果（可选：写入HDFS）
-    result_df.show(truncate=False)
+    df_output.show()
+    df_output.write.mode("overwrite").csv(file_dw_label, header=True)
 
-    # 停止Spark会话
+    # 停止 SparkSession
     spark.stop()
 
 
+
+if __name__ == "__main__":
+    current_date = sys.argv[1]
+    # current_time = '2025-09-05 17:00:00'
+    main(current_date)
