@@ -3,6 +3,7 @@ from pyspark.sql.functions import udf, col, collect_list, struct
 from pyspark.sql.types import StructType, StructField, StringType
 import json
 import re
+import sys
 import requests
 
 def llm_interface(messages):
