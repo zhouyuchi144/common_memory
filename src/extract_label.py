@@ -22,10 +22,11 @@ def llm_interface(messages):
         return ""
 
 system_prompt = """# 任务
-你是一个地址信息提取助手。请从用户的多轮对话中识别并提取家庭地址和公司地址。
+你是一个地址信息提取助手。请从用户的多轮对话中识别并提取【家的地址】和【公司地址】
 
 # 要求：
-家庭地址(home)和公司地址(comp)：完整地包含地址的全部细节
+【家的地址】(home)：完整地包含家的地址的全部细节
+【公司地址】(comp)：完整地包含公司地址的全部细节
 例如：菊园2号楼4单元301
 
 # 输出
@@ -51,6 +52,8 @@ def extract_address_batch(msgs, rslt):
     for i in range(3):
         try:
             resp = llm_interface(messages)
+            print(messages)
+            print(resp)
             resp = str2json_llm_output(resp)
             field_map = {"home": "address_home", "comp": "address_company"}
             for field_llm, field_name in field_map.items():
@@ -66,7 +69,7 @@ def proc_extract_address(msgs):
     # 分批次处理消息（每次最多1000条）
     MAX_BATCH = 1000
     for i in range(0, len(msgs), MAX_BATCH):
-        batch_msgs = msgs[i:i+MAX_BATCH+2]
+        batch_msgs = msgs[i:i+MAX_BATCH+10]
         rslt = extract_address_batch(batch_msgs, rslt)
     return rslt if rslt else None
 
@@ -87,8 +90,10 @@ def main(current_date):
     df = spark.read.csv(file_chat_hist, header=True)
     # 过滤并排序
     filtered_df = df.filter(col("msg_type") == "must") \
+        .withColumn("intent_id", col("intent_id").cast("string")) \
         .withColumn("id", col("id").cast("int")) \
         .orderBy(col("id"))
+        # .filter(col("intent_id") != "10007") \
 
     # 按用户ID分组，收集消息历史
     grouped_df = filtered_df.groupBy("user_id", "intent_id") \
