@@ -1,0 +1,4 @@
+
+SELECT wf_instance_id,user_id,order_status,from_address,to_address,updated_time
+FROM preprod_agent_service_db.ride_hailing_order
+

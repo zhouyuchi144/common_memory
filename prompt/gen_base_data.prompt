@@ -1,0 +1,99 @@
+
+# 任务：
+用pyspark实现：
+从两个表，提取打车的出发地和目的地
+
+# 要求：
+输入的两个hive表进行关联，
+如果存在订单表，采用订单表的出发地+cityCode、目的地+cityCode、update_time
+如果不存在订单表，采用参数表的出发地+cityCode、目的地+cityCode（如果没有cityCode，为空字符串）、update_time
+
+
+# 输入：
+## 表1（参数表）: preprod.parameters
+- 数据示例：
+id,instance_id,user_id,app_id,intent_id,parameters,created_time,created_by,updated_time,updated_by,version,delete_flag,extra_data
+1813,1824,1952200177703976960,shouqi,10007,"[{\"dep\": \"\", \"input\": \"快车\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"快车\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"FINAL_CONFIRM\", \"propertyName\": \"car_prefer\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.CarType\", \"propertyValue\": \"{\\\"carType\\\":1,\\\"carTypeName\\\":\\\"快车\\\",\\\"label\\\":\\\"快车\\\"}\"}, {\"dep\": \"\", \"input\": \"\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"快车52.47元\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"FINAL_CONFIRM\", \"propertyName\": \"price\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.Price\", \"propertyValue\": \"{\\\"channel\\\":\\\"shouqi\\\",\\\"channelCarType\\\":283,\\\"channelCarTypeName\\\":\\\"悠享型\\\",\\\"desc\\\":\\\"快车52.47元\\\",\\\"estimatePrice\\\":5247,\\\"estimatePriceKey\\\":\\\"PT68bad7904d9b8d001b4d04d1\\\",\\\"label\\\":\\\"快车52.47元\\\",\\\"originPrice\\\":5247,\\\"standardCarType\\\":1,\\\"standardCarTypeName\\\":\\\"快车\\\"}\"}, {\"dep\": \"\", \"input\": \"\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"方正大厦(东南门)\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"STEP_CONFIRM\", \"propertyName\": \"start_place\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.OriginAddress\", \"propertyValue\": \"{\\\"cityCode\\\":\\\"010\\\",\\\"coordinate\\\":{\\\"latitude\\\":40.040404,\\\"longitude\\\":116.307233},\\\"label\\\":\\\"方正大厦(东南门)\\\",\\\"name\\\":\\\"方正大厦(东南门)\\\"}\"}, {\"dep\": \"\", \"input\": \"北京市西城区北三环中路12号院\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"北三环中路12号院(西门)\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"STEP_CONFIRM\", \"propertyName\": \"end_place\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.DestAddress\", \"propertyValue\": \"{\\\"address\\\":\\\"北三环中路12号院\\\",\\\"coordinate\\\":{\\\"latitude\\\":39.967656,\\\"longitude\\\":116.385267},\\\"label\\\":\\\"北三环中路12号院(西门)\\\",\\\"name\\\":\\\"北三环中路12号院(西门)\\\"}\"}]",2025-09-06T04:28:46.000+08:00,SYS,2025-09-06T04:29:20.000+08:00,,8,false,"{\"parameters_completeness\":true,\"coords\":\"116.30697960983916,40.0410206844042\"}"
+
+### 表1的数据说明
+1）当propertyName = "start_place", label=from_address
+当propertyName = "end_place", label=to_address
+2）出发地和目的地的"status"="CONFIRMED"（都等于）时，数据有效；否则数据无效，直接丢弃
+
+
+## 表2（订单表）: preprod.order
+- 数据示例：
+id,created_time,created_by,updated_time,updated_by,delete_flag,version,order_id,ext_order_id,user_id,channel,book_time,order_status,cancel_reason,payment_status,refund_status,evaluation_status,from_address,to_address,car_type,car_order_type,book_user,ride_user,price,driver_info,description,ext_order_details,parameter,master_id,wf_instance_id,fee_info
+"wf_instance_id","order_status","from_address","to_address","updated_time"
+589,2025-09-06T01:27:15.000+08:00,SYS,2025-09-06T04:18:23.000+08:00,SYS,0,180,10071963896699713748992,B250905172715546000,10000100011,shouqi,2025-09-06T01:27:15.000+08:00,20,0,1,0,0,"{\"address\":\"方正大厦(东南门)\",\"cityCode\":\"010\",\"coordinate\":{\"latitude\":40.040404,\"longitude\":116.307233},\"name\":\"方正大厦(东南门)\"}","{\"address\":\"北京大学燕北园\",\"cityCode\":\"010\",\"coordinate\":{\"latitude\":40.008973,\"longitude\":116.286234},\"name\":\"北京大学燕北园\"}","{\"carTypeEnum\":\"EXPRESS\",\"channelCarType\":\"283\",\"multiple\":false}",1,"{\"callerPhone\":\"15011352560\"}","{\"riderPhone\":\"15011352560\"}","{\"price\":[{\"carType\":\"EXPRESS\",\"channelCarType\":\"283\",\"estimateActualPrice\":\"3196\",\"estimateOriginPrice\":\"3196\",\"estimatePriceKey\":\"PT68baace09f8c01001b3d7732\"}]}","{\"carBrand\":\"ARCFOX极狐阿尔法S\",\"card\":\"京BDB0666\",\"color\":\"黑色\",\"name\":\"孟师傅\",\"phone\":\"13263484578\"}",,"{\"driverCarTime\":\"1380\",\"totalPrice\":\"3493\",\"driverCarDistance\":\"6.32\"}","{\"bookTime\":\"2025-09-05 17:27:15.304968922\",\"callerPhone\":\"15011352560\",\"channel\":\"SHOUQI\",\"cityCode\":\"010\",\"endAddress\":\"北京大学燕北园\",\"endName\":\"北京大学燕北园\",\"fromCoordinate\":{\"latitude\":40.040404,\"longitude\":116.307233},\"masterOrderId\":\"1963896699671805952\",\"orderType\":\"1\",\"quotes\":[{\"carType\":\"283\",\"estimateActualPrice\":\"3196\",\"estimateOriginPrice\":\"3196\",\"estimatePriceKey\":\"PT68baace09f8c01001b3d7732\"}],\"riderPhone\":\"15011352560\",\"startAddress\":\"方正大厦(东南门)\",\"startName\":\"方正大厦(东南门)\",\"toCoordinate\":{\"latitude\":40.008973,\"longitude\":116.286234},\"userId\":10000100011,\"wfInstanceId\":\"1821\"}",1963896699671805952,1821,"{\"actualPayAmount\":\"34.93\",\"basePrice\":\"18.5\",\"couponAmount\":\"0\",\"couponSettleAmout\":\"0.0\",\"customerPayPrice\":\"34.93\",\"decimalsFees\":\"0.0\",\"designatedDriverFee\":\"0.0\",\"endDate\":\"2025-09-05 17:59:18\",\"endPlace\":\"北京市海淀区青龙桥街道圆明园西路辅路圆明园遗址公园\",\"extPriceInfo\":[],\"groupName\":\"283\",\"hotDuration\":\"13\",\"hotDurationFees\":\"8.45\",\"hotMileage\":\"3.32\",\"hotMileageFees\":\"7.98\",\"includeMileage\":\"3.0\",\"includeMinute\":\"10\",\"longDistanceNum\":\"0.0\",\"longDistancePrice\":\"0.0\",\"mileage\":\"6.32\",\"mileagePrice\":\"0.00\",\"min\":\"23\",\"nighitDuration\":\"0\",\"nightDistanceNum\":\"0.0\",\"otherCost\":[{\"cost\":\"0\",\"typeName\":\"高速服务费\"},{\"cost\":\"0\",\"typeName\":\"停车费\"},{\"cost\":\"0\",\"typeName\":\"司机过节费\"},{\"cost\":\"0\",\"typeName\":\"食宿费\"},{\"cost\":\"0.00\",\"typeName\":\"语音费\"},{\"cost\":\"0\",\"typeName\":\"调度费\"}],\"overMilageNum\":\"0.00\",\"overMilageNumTotal\":\"7.98\",\"overMilagePrice\":\"0.00\",\"overTimeNum\":\"0.0\",\"overTimeNumTotal\":\"8.45\",\"overTimePrice\":\"0.0\",\"riderName\":\"光帆科技\",\"serviceType\":\"1\",\"startDate\":\"2025-09-05 17:36:04\",\"startPlace\":\"北京市海淀区上地街道北京北大方正电子有限公司上地五街-道路停车位\",\"status\":\"45\",\"timePrice\":\"0.00\",\"total\":\"34.93\",\"totalAmount\":34.93,\"waitingFee\":\"0.0\",\"waitingMinutes\":\"0.0\"}"
+
+## 两个表的关联主键：
+表1.instance_id = 表2.wf_instance_id
+
+
+
+# 输出：
+instance_id,from_address,from_city_code,to_address,to_city_code,order_status
+- 数据示例：
+247,方正大厦(东南门),010,西二旗(地铁站),010,2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------------------
+
+# 任务：
+用pyspark实现：
+从两个文件，提取打车的出发地和目的地
+
+# 要求：
+输入的两个文件进行关联，
+如果存在订单文件，采用订单文件的出发地+cityCode、目的地+cityCode、update_time
+如果不存在订单文件，采用参数文件的出发地+cityCode、目的地+cityCode（如果没有cityCode，为空字符串）、update_time
+
+
+# 输入：
+## 文件1（参数文件）: 文件名=/data/ride_parameters
+- 数据示例：
+id,instance_id,user_id,app_id,intent_id,parameters,created_time,created_by,updated_time,updated_by,version,delete_flag,extra_data
+1813,1824,1952200177703976960,shouqi,10007,"[{\"dep\": \"\", \"input\": \"快车\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"快车\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"FINAL_CONFIRM\", \"propertyName\": \"car_prefer\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.CarType\", \"propertyValue\": \"{\\\"carType\\\":1,\\\"carTypeName\\\":\\\"快车\\\",\\\"label\\\":\\\"快车\\\"}\"}, {\"dep\": \"\", \"input\": \"\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"快车52.47元\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"FINAL_CONFIRM\", \"propertyName\": \"price\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.Price\", \"propertyValue\": \"{\\\"channel\\\":\\\"shouqi\\\",\\\"channelCarType\\\":283,\\\"channelCarTypeName\\\":\\\"悠享型\\\",\\\"desc\\\":\\\"快车52.47元\\\",\\\"estimatePrice\\\":5247,\\\"estimatePriceKey\\\":\\\"PT68bad7904d9b8d001b4d04d1\\\",\\\"label\\\":\\\"快车52.47元\\\",\\\"originPrice\\\":5247,\\\"standardCarType\\\":1,\\\"standardCarTypeName\\\":\\\"快车\\\"}\"}, {\"dep\": \"\", \"input\": \"\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"方正大厦(东南门)\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"STEP_CONFIRM\", \"propertyName\": \"start_place\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.OriginAddress\", \"propertyValue\": \"{\\\"cityCode\\\":\\\"010\\\",\\\"coordinate\\\":{\\\"latitude\\\":40.040404,\\\"longitude\\\":116.307233},\\\"label\\\":\\\"方正大厦(东南门)\\\",\\\"name\\\":\\\"方正大厦(东南门)\\\"}\"}, {\"dep\": \"\", \"input\": \"北京市西城区北三环中路12号院\", \"status\": \"CONFIRMED\", \"doesMust\": true, \"checkResult\": \"{\\\"code\\\":\\\"SUCCESS\\\",\\\"confirm\\\":false,\\\"msg\\\":\\\"执行成功\\\",\\\"recommendList\\\":[{\\\"label\\\":\\\"北三环中路12号院(西门)\\\"}],\\\"success\\\":true}\", \"confirmStage\": \"STEP_CONFIRM\", \"propertyName\": \"end_place\", \"propertyClass\": \"com.spotlight.engine.facade.validate.entity.DestAddress\", \"propertyValue\": \"{\\\"address\\\":\\\"北三环中路12号院\\\",\\\"coordinate\\\":{\\\"latitude\\\":39.967656,\\\"longitude\\\":116.385267},\\\"label\\\":\\\"北三环中路12号院(西门)\\\",\\\"name\\\":\\\"北三环中路12号院(西门)\\\"}\"}]",2025-09-06T04:28:46.000+08:00,SYS,2025-09-06T04:29:20.000+08:00,,8,false,"{\"parameters_completeness\":true,\"coords\":\"116.30697960983916,40.0410206844042\"}"
+
+### 文件1的数据说明
+从字段parameters中提取信息
+1）当propertyName = "start_place", label是【出发地址】
+当propertyName = "end_place", label是【目的地地址】
+2）出发地和目的地的"status"="CONFIRMED"（都等于）时，数据有效；否则数据无效，直接丢弃
+
+
+## 文件2（订单文件）: 文件名=/data/ride_hailing_order
+- 数据示例：
+id,created_time,created_by,updated_time,updated_by,delete_flag,version,order_id,ext_order_id,user_id,channel,book_time,order_status,cancel_reason,payment_status,refund_status,evaluation_status,from_address,to_address,car_type,car_order_type,book_user,ride_user,price,driver_info,description,ext_order_details,parameter,master_id,wf_instance_id,fee_info
+"wf_instance_id","order_status","from_address","to_address","updated_time"
+589,2025-09-06T01:27:15.000+08:00,SYS,2025-09-06T04:18:23.000+08:00,SYS,0,180,10071963896699713748992,B250905172715546000,10000100011,shouqi,2025-09-06T01:27:15.000+08:00,20,0,1,0,0,"{\"address\":\"方正大厦(东南门)\",\"cityCode\":\"010\",\"coordinate\":{\"latitude\":40.040404,\"longitude\":116.307233},\"name\":\"方正大厦(东南门)\"}","{\"address\":\"北京大学燕北园\",\"cityCode\":\"010\",\"coordinate\":{\"latitude\":40.008973,\"longitude\":116.286234},\"name\":\"北京大学燕北园\"}","{\"carTypeEnum\":\"EXPRESS\",\"channelCarType\":\"283\",\"multiple\":false}",1,"{\"callerPhone\":\"15011352560\"}","{\"riderPhone\":\"15011352560\"}","{\"price\":[{\"carType\":\"EXPRESS\",\"channelCarType\":\"283\",\"estimateActualPrice\":\"3196\",\"estimateOriginPrice\":\"3196\",\"estimatePriceKey\":\"PT68baace09f8c01001b3d7732\"}]}","{\"carBrand\":\"ARCFOX极狐阿尔法S\",\"card\":\"京BDB0666\",\"color\":\"黑色\",\"name\":\"孟师傅\",\"phone\":\"13263484578\"}",,"{\"driverCarTime\":\"1380\",\"totalPrice\":\"3493\",\"driverCarDistance\":\"6.32\"}","{\"bookTime\":\"2025-09-05 17:27:15.304968922\",\"callerPhone\":\"15011352560\",\"channel\":\"SHOUQI\",\"cityCode\":\"010\",\"endAddress\":\"北京大学燕北园\",\"endName\":\"北京大学燕北园\",\"fromCoordinate\":{\"latitude\":40.040404,\"longitude\":116.307233},\"masterOrderId\":\"1963896699671805952\",\"orderType\":\"1\",\"quotes\":[{\"carType\":\"283\",\"estimateActualPrice\":\"3196\",\"estimateOriginPrice\":\"3196\",\"estimatePriceKey\":\"PT68baace09f8c01001b3d7732\"}],\"riderPhone\":\"15011352560\",\"startAddress\":\"方正大厦(东南门)\",\"startName\":\"方正大厦(东南门)\",\"toCoordinate\":{\"latitude\":40.008973,\"longitude\":116.286234},\"userId\":10000100011,\"wfInstanceId\":\"1821\"}",1963896699671805952,1821,"{\"actualPayAmount\":\"34.93\",\"basePrice\":\"18.5\",\"couponAmount\":\"0\",\"couponSettleAmout\":\"0.0\",\"customerPayPrice\":\"34.93\",\"decimalsFees\":\"0.0\",\"designatedDriverFee\":\"0.0\",\"endDate\":\"2025-09-05 17:59:18\",\"endPlace\":\"北京市海淀区青龙桥街道圆明园西路辅路圆明园遗址公园\",\"extPriceInfo\":[],\"groupName\":\"283\",\"hotDuration\":\"13\",\"hotDurationFees\":\"8.45\",\"hotMileage\":\"3.32\",\"hotMileageFees\":\"7.98\",\"includeMileage\":\"3.0\",\"includeMinute\":\"10\",\"longDistanceNum\":\"0.0\",\"longDistancePrice\":\"0.0\",\"mileage\":\"6.32\",\"mileagePrice\":\"0.00\",\"min\":\"23\",\"nighitDuration\":\"0\",\"nightDistanceNum\":\"0.0\",\"otherCost\":[{\"cost\":\"0\",\"typeName\":\"高速服务费\"},{\"cost\":\"0\",\"typeName\":\"停车费\"},{\"cost\":\"0\",\"typeName\":\"司机过节费\"},{\"cost\":\"0\",\"typeName\":\"食宿费\"},{\"cost\":\"0.00\",\"typeName\":\"语音费\"},{\"cost\":\"0\",\"typeName\":\"调度费\"}],\"overMilageNum\":\"0.00\",\"overMilageNumTotal\":\"7.98\",\"overMilagePrice\":\"0.00\",\"overTimeNum\":\"0.0\",\"overTimeNumTotal\":\"8.45\",\"overTimePrice\":\"0.0\",\"riderName\":\"光帆科技\",\"serviceType\":\"1\",\"startDate\":\"2025-09-05 17:36:04\",\"startPlace\":\"北京市海淀区上地街道北京北大方正电子有限公司上地五街-道路停车位\",\"status\":\"45\",\"timePrice\":\"0.00\",\"total\":\"34.93\",\"totalAmount\":34.93,\"waitingFee\":\"0.0\",\"waitingMinutes\":\"0.0\"}"
+
+### 文件2的数据说明
+从字段from_address,to_address中提取信息
+from_address.address是【出发地址】
+to_address.address是【目的地地址】
+
+
+## 两个文件的关联主键：
+文件1.instance_id = 文件2.wf_instance_id
+
+
+
+# 输出：
+instance_id,from_address,from_city_code,to_address,to_city_code,order_status
+- 数据示例：
+247,方正大厦(东南门),010,西二旗(地铁站),010,2

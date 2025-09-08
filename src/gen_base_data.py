@@ -56,7 +56,7 @@ def parse_order_address(address_str):
 
 def main(current_date):
     # 初始化 SparkSession
-    spark = SparkSession.builder.appName("TaxiDataProcessing").getOrCreate()
+    spark = SparkSession.builder.appName("TaxiDataProcess").getOrCreate()
     # 读取参数文件
     # df_parameters = spark.read.csv("file:///data/yuchi/common_memory/data/ride_parameters.csv", header=True, escape='"')
     # df_order = spark.read.csv("file:///data/yuchi/common_memory/data/ride_hailing_order.csv", header=True, escape='"')

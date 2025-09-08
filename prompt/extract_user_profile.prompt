@@ -1,0 +1,80 @@
+
+# 任务：
+用pyspark实现：
+从两个文件，提取打车的出发地和目的地
+
+# 要求：
+1、输入的【历史会话】数据中，需要进行过滤（只取msg_type=must）
+2、
+
+
+# 输入：【历史会话】数据
+- 数据存储的HDFS路径：/data/chat_hist/partition_date=2025-09-05/
+- 数据示例：
+user_id,msg,msg_type,ts,intent_id,conversation_id,req_id,talk_cmd,mic_cmd,scene_id,msg_modal,role,topic,id,scene_sub_id,audio_blob_id,audio_blob_url
+1945410264316772352,稍等哈,padding,1757001600162,10007,356ffbec-9f12-4a22-b1d6-2a8499719537_1757001549218,1945410264316772352---2687,on,off,-1,text,bot,"",63473,-1,be09b9d5-adb2-4a0c-a0fa-3f972e3cd684,""
+1945410264316772352,好的，从方正大厦到云趣园三区，快车费用是39.13元，可以吗？,must,1757001600510,10007,356ffbec-9f12-4a22-b1d6-2a8499719537_1757001549218,1945410264316772352---2687,on,on,-1,text,bot,"",63474,-1,8e474d5b-d046-44e4-9785-63845012f178,""
+
+
+# 访问大模型的函数
+
+def llm_interface(messages):
+    url = 'http://172.16.1.151:8000/v1/chat/completions'
+    headers = {"Content-Type": "application/json"}
+    params = {
+        "model": "/data/model/qwen3-14b",
+        "messages": messages,
+        "temperature": 0.6, "stream": False, "chat_template_kwargs": {"enable_thinking": False}
+    }
+    try:
+        resp = requests.post(url, json=params, headers=headers)
+        output_data = resp.json()
+        return output_data['choices'][0]['message']['content']
+    except Exception as e:
+        return ""
+
+def str2json_llm_output(arg1):
+    if isinstance(arg1, str):
+        pattern = re.compile(r'```(json)?\n?|```\n?')
+        r = pattern.sub('', arg1)
+        return json.loads(r)
+    else:
+        return arg1
+
+def extract_user_profile(self, value):
+    system_msg = """# 任务
+你是一个地址信息提取助手。请从用户的多轮对话中识别并提取家庭地址和公司地址。
+
+# 要求：
+家庭地址(home)和公司地址(comp)：完整地包含地址的全部细节
+例如：菊园2号楼4单元301
+
+# 输出
+必须是严格的JSON格式，确保格式正确，不要增加任何字符
+如果没有提取到某个地址，将其值设为空字符串。
+示例输出：{"home": "菊园2号楼4单元301", "comp": "方正大厦东南门"}"""
+    messages = [
+        {"role": "system", "content": system_msg},
+        {"role": "user", "content": value}
+    ]
+    try:
+        resp = llm_interface(messages)
+        resp = str2json_llm_output(resp)
+        field_map = {"home": "addr_home", "comp": "addr_company"}
+        rslt = {}
+        has_value = False
+        for field_llm, field_name in field_map.items():
+            rslt[field_name] = resp.get(field_llm, "")
+            if resp.get(field_llm, ""):
+                has_value = True
+        if has_value:
+            return json.dumps(rslt, ensure_ascii=False)
+        else:
+            return None
+    except Exception as e:
+        return None
+
+# 输出：
+- 数据示例：
+user_id,home_address,company_address
+247,方正大厦(东南门),010,西二旗(地铁站),010,2
