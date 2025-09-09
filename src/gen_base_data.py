@@ -60,9 +60,9 @@ def main(current_date):
     # 读取参数文件
     # df_parameters = spark.read.csv("file:///data/yuchi/common_memory/data/ride_parameters.csv", header=True, escape='"')
     # df_order = spark.read.csv("file:///data/yuchi/common_memory/data/ride_hailing_order.csv", header=True, escape='"')
-    file_ride_param = f"/data/ride_parameters/partition_date={current_date}/"
-    file_ride_order = f"/data/ride_hailing_order/partition_date={current_date}/"
-    file_dw_ride = f"/data/dw_ride_data/partition_date={current_date}/"
+    file_ride_param = f"hdfs:///data/ride_parameters/partition_date={current_date}/"
+    file_ride_order = f"hdfs:///data/ride_hailing_order/partition_date={current_date}/"
+    file_dw_ride = f"hdfs:///data/dw_ride_data/partition_date={current_date}/"
     print(file_ride_param)
     print(file_ride_order)
     print(file_dw_ride)
