@@ -38,19 +38,20 @@ system_prompt = """# 任务
 """
 
 def llm_interface(messages):
-    url = 'http://172.16.1.151:8002/v1/chat/completions'
-    headers = {"Content-Type": "application/json"}
+    sdkey = "Bearer sk-9920838060a4455184ef7a433135b06c"
+    url = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation'
+    headers = {"Authorization": sdkey, "Content-Type": "application/json"}
     params = {
-        "model": "/data/model/qwen3-32b",
-        "messages": messages,
-        "temperature": 0.6, "stream": False, "chat_template_kwargs": {"enable_thinking": False}
+        "model": "qwen-plus",
+        "input":{"messages": messages},
+        "parameters": {"temperature": 0.6, "result_format": "message", "stream": False, "enable_thinking": False}
     }
-    try:
-        resp = requests.post(url, json=params, headers=headers)
+    resp = requests.post(url, json=params, headers=headers)
+    # print(resp.json())
+    if resp.status_code == 200:
         output_data = resp.json()
-        return output_data['choices'][0]['message']['content']
-    except Exception as e:
-        return ""
+        return output_data['output']['choices'][0]['message']['content']
+    return ""
 
 def str2json_llm_output(arg1):
     if isinstance(arg1, str):
@@ -62,26 +63,36 @@ def str2json_llm_output(arg1):
     else:
         return arg1
 
-def extract_address_batch2(msgs, rslt):
-    messages = [{"role": "system", "content": system_prompt}]
-    for msg in msgs:
-        role = "user" if msg.role == "user" else "assistant"
-        messages.append({"role": role, "content": msg.msg})
-    # print(messages)
+def address_clean(rslt):
+    rslt_clean = {}
+    for name, value in rslt.items():
+        unique_values = set()
+        for v in value.split(";"):
+            if len(v) <= 3: continue
+            unique_values.add(v)
+        if unique_values: rslt_clean[name] = ";".join(unique_values)
+    return rslt_clean
 
-    for i in range(3):
-        try:
-            resp = llm_interface(messages)
-            # print(resp)
-            resp = str2json_llm_output(resp)
-            field_map = {"home": "address_home", "comp": "address_company"}
-            for field_llm, field_name in field_map.items():
-                if resp.get(field_llm, ""):
-                    rslt[field_name] = f"{rslt[field_name]};{resp[field_llm]}" if rslt.get(field_name) else resp[field_llm]
-            break
-        except Exception as e:
-            pass
-    return rslt
+# def extract_address_batch2(msgs, rslt):
+#     messages = [{"role": "system", "content": system_prompt}]
+#     for msg in msgs:
+#         role = "user" if msg.role == "user" else "assistant"
+#         messages.append({"role": role, "content": msg.msg})
+#     # print(messages)
+#
+#     for i in range(3):
+#         try:
+#             resp = llm_interface(messages)
+#             # print(resp)
+#             resp = str2json_llm_output(resp)
+#             field_map = {"home": "address_home", "comp": "address_company"}
+#             for field_llm, field_name in field_map.items():
+#                 if resp.get(field_llm, ""):
+#                     rslt[field_name] = f"{rslt[field_name]};{resp[field_llm]}" if rslt.get(field_name) else resp[field_llm]
+#             break
+#         except Exception as e:
+#             pass
+#     return rslt
 
 def extract_address_batch(msgs, rslt):
     chat = "\n".join(msgs)
@@ -98,9 +109,11 @@ def extract_address_batch(msgs, rslt):
             for field_llm, field_name in field_map.items():
                 if resp.get(field_llm, ""):
                     rslt[field_name] = f"{rslt[field_name]};{resp[field_llm]}" if rslt.get(field_name) else resp[field_llm]
-            return rslt
+            break
         except Exception as e:
             pass
+
+    if rslt: rslt = address_clean(rslt)
     return rslt
 
 def gen_messages(msgs):
