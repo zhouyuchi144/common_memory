@@ -23,8 +23,8 @@ def main(current_time):
     spark = SparkSession.builder.appName("AddressPreference").getOrCreate()
     
     # df = spark.read.csv("file:///data/yuchi/common_memory/output_table/*.csv", header=True, inferSchema=True)
-    file_dw_ride = f"/data/dw_ride_data/"
-    file_perf_ride = f"/data/perf_ride_data/partition_date={current_date}/"
+    file_dw_ride = f"/data/dw_ride_di/"
+    file_perf_ride = f"/data/up_perf_ride_da/partition_date={current_date}/"
     print(file_dw_ride)
     print(file_perf_ride)
     df = spark.read.csv(file_dw_ride, header=True, inferSchema=True)
@@ -56,12 +56,12 @@ def main(current_time):
     df_rslt_from = df_rslt_from.withColumn("wilson_score", wilson_udf("pos_from", "n_total"))
     df_rslt_to = df_rslt_to.withColumn("wilson_score", wilson_udf("pos_to", "n_total"))
     df_rslt_from = df_rslt_from.groupBy("user_id").agg(
-        F.map_from_entries(F.collect_list(F.struct("from_address", "percent_score"))).alias("preference_from_percent"),
-        F.map_from_entries(F.collect_list(F.struct("from_address", "wilson_score"))).alias("preference_from_wilson")
+        F.map_from_entries(F.collect_list(F.struct("from_address", "percent_score"))).alias("perf_from_percent"),
+        F.map_from_entries(F.collect_list(F.struct("from_address", "wilson_score"))).alias("perf_from_wilson")
     )
     df_rslt_to = df_rslt_to.groupBy("user_id").agg(
-        F.map_from_entries(F.collect_list(F.struct("to_address", "percent_score"))).alias("preference_to_percent"),
-        F.map_from_entries(F.collect_list(F.struct("to_address", "wilson_score"))).alias("preference_to_wilson")
+        F.map_from_entries(F.collect_list(F.struct("to_address", "percent_score"))).alias("perf_to_percent"),
+        F.map_from_entries(F.collect_list(F.struct("to_address", "wilson_score"))).alias("perf_to_wilson")
     )
 
 
@@ -77,26 +77,26 @@ def main(current_time):
     df_rslt_address = df_rslt_address.withColumn("wilson_score", wilson_udf("pos_address", "n_total"))
 
     df_rslt_address = df_rslt_address.groupBy("user_id").agg(
-        F.map_from_entries(F.collect_list(F.struct("address", "percent_score"))).alias("preference_address_percent"),
-        F.map_from_entries(F.collect_list(F.struct("address", "wilson_score"))).alias("preference_address_wilson")
+        F.map_from_entries(F.collect_list(F.struct("address", "percent_score"))).alias("perf_address_percent"),
+        F.map_from_entries(F.collect_list(F.struct("address", "wilson_score"))).alias("perf_address_wilson")
     )
 
 
     result_df = df_rslt_address.join(df_rslt_from, "user_id", "left").join(df_rslt_to, "user_id", "left").select(
         "user_id",
-        F.coalesce(df_rslt_address["preference_address_percent"], F.create_map()).alias("preference_address_percent"),
-        F.coalesce(df_rslt_address["preference_address_wilson"], F.create_map()).alias("preference_address_wilson"),
-        F.coalesce(df_rslt_from["preference_from_percent"], F.create_map()).alias("preference_from_percent"),
-        F.coalesce(df_rslt_from["preference_from_wilson"], F.create_map()).alias("preference_from_wilson"),
-        F.coalesce(df_rslt_to["preference_to_percent"], F.create_map()).alias("preference_to_percent"),
-        F.coalesce(df_rslt_to["preference_to_wilson"], F.create_map()).alias("preference_to_wilson")
+        F.coalesce(df_rslt_address["perf_address_percent"], F.create_map()).alias("perf_address_percent"),
+        F.coalesce(df_rslt_address["perf_address_wilson"], F.create_map()).alias("perf_address_wilson"),
+        F.coalesce(df_rslt_from["perf_from_percent"], F.create_map()).alias("perf_from_percent"),
+        F.coalesce(df_rslt_from["perf_from_wilson"], F.create_map()).alias("perf_from_wilson"),
+        F.coalesce(df_rslt_to["perf_to_percent"], F.create_map()).alias("perf_to_percent"),
+        F.coalesce(df_rslt_to["perf_to_wilson"], F.create_map()).alias("perf_to_wilson")
     )
-    result_df = result_df.withColumn("preference_address_percent", F.to_json("preference_address_percent")) \
-                         .withColumn("preference_address_wilson", F.to_json("preference_address_wilson")) \
-                         .withColumn("preference_from_percent", F.to_json("preference_from_percent")) \
-                         .withColumn("preference_from_wilson", F.to_json("preference_from_wilson")) \
-                         .withColumn("preference_to_percent", F.to_json("preference_to_percent")) \
-                         .withColumn("preference_to_wilson", F.to_json("preference_to_wilson"))
+    result_df = result_df.withColumn("perf_address_percent", F.to_json("perf_address_percent")) \
+                         .withColumn("perf_address_wilson", F.to_json("perf_address_wilson")) \
+                         .withColumn("perf_from_percent", F.to_json("perf_address_from_percent")) \
+                         .withColumn("perf_from_wilson", F.to_json("perf_address_from_wilson")) \
+                         .withColumn("perf_to_percent", F.to_json("perf_address_to_percent")) \
+                         .withColumn("perf_to_wilson", F.to_json("perf_address_to_wilson"))
 
 
     result_df.write.mode("overwrite").csv(file_perf_ride, header=True)
