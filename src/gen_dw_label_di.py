@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import udf, col, collect_list, struct
+from pyspark.sql.functions import udf, col, collect_list, struct, lit
 from pyspark.sql.types import StructType, StructField, StringType
 import json
 import re
@@ -185,7 +185,8 @@ def main(current_date):
         col("user_id"),
         col("intent_id"),
         col("addresses.address_home").alias("address_home"),
-        col("addresses.address_company").alias("address_company")
+        col("addresses.address_company").alias("address_company"),
+        lit(current_date).alias("create_date")
     )
 
     df_output.show(truncate=False)
@@ -198,5 +199,5 @@ def main(current_date):
 
 if __name__ == "__main__":
     current_date = sys.argv[1]
-    # current_time = '2025-09-05 17:00:00'
+    # current_date = '2025-09-05 17:00:00'
     main(current_date)
