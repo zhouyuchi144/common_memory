@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType
+from pyspark.sql.types import StringType, FloatType, MapType
 import math
 import json
 import sys
@@ -15,10 +15,29 @@ def cal_wilson_score(pos, n):
     return numerator / denominator
 
 def cal_perf_score(pos, n):
-    if n == 0: return json.dumps({"percent_score": 0.0, "wilson_score": 0.0}, ensure_ascii=False)
+    if n == 0: return {"percent_score": 0.0, "wilson_score": 0.0}
     percent_score = pos / n
     wilson_score = cal_wilson_score(pos, n)
-    return json.dumps({"percent_score": percent_score, "wilson_score": wilson_score}, ensure_ascii=False)
+    return {"percent_score": percent_score, "wilson_score": wilson_score}
+
+def proc_merge_rslt(msgs):
+    rslt = []
+    for msg in msgs:
+        value = msg.value
+        value["name"] = msg.name
+        rslt.append(value)
+    return json.dumps(rslt, ensure_ascii=False)
+
+def process_compute_perference(df, perf_name, cal_perf_score_udf, proc_merge_rslt_udf):
+    df = df.filter(F.col("address").isNotNull())
+    df = df.groupBy("user_id", "address").agg(F.sum("weight").alias("pos")).cache()
+    df_total = df.groupBy("user_id").agg(F.sum("pos").alias("n"))
+    df_rslt = df.join(df_total, ["user_id"])
+    df_rslt = df_rslt.withColumn("perf_addr", cal_perf_score_udf("pos", "n"))
+    df_rslt = df_rslt.groupBy("user_id") \
+        .agg(F.collect_list(F.struct(F.col("address").alias("name"), F.col("perf_addr").alias("value"))).alias("msgs"))
+    df_rslt = df_rslt.withColumn(perf_name, proc_merge_rslt_udf(F.col("msgs")))
+    return (df_rslt, df)
 
 def main(current_date):
     file_input = f"/data/dw_ride_di/"
@@ -26,10 +45,10 @@ def main(current_date):
     print(file_input)
     print(file_output)
 
-    spark = SparkSession.builder.appName("AddressPreference").getOrCreate()
+    cal_perf_score_udf = F.udf(cal_perf_score, MapType(StringType(), FloatType()))
+    proc_merge_rslt_udf = F.udf(proc_merge_rslt, StringType())
 
-    cal_perf_score_udf = F.udf(cal_perf_score, StringType())
-    
+    spark = SparkSession.builder.appName("AddressPreference").getOrCreate()
     # df = spark.read.csv("file:///data/yuchi/common_memory/output_table/*.csv", header=True, inferSchema=True)
     df = spark.read.csv(file_input, header=True, inferSchema=True)
 
@@ -44,27 +63,13 @@ def main(current_date):
     df = df.withColumn("weight", F.col("w") * F.col("decay"))
     df = df.cache()
 
-    df_from = df.groupBy("user_id", "from_address").agg(F.sum("weight").alias("pos_from"))
-    df_to = df.groupBy("user_id", "to_address").agg(F.sum("weight").alias("pos_to"))
-    df_user = df.groupBy("user_id").agg(F.sum("weight").alias("n_total")).cache()
+    (df_rslt_from, df_from) = process_compute_perference(df.select("user_id", "weight", F.col("from_address").alias("address")), "perf_addr_from", cal_perf_score_udf, proc_merge_rslt_udf)
+    (df_rslt_to, df_to) = process_compute_perference(df.select("user_id", "weight", F.col("to_address").alias("address")), "perf_addr_to", cal_perf_score_udf, proc_merge_rslt_udf)
 
-    df_rslt_from = df_from.join(df_user, ["user_id"])
-    df_rslt_to = df_to.join(df_user, ["user_id"])
-    df_rslt_from = df_rslt_from.withColumn("perf_addr_from", cal_perf_score_udf("pos_from", "n_total")) \
-                               .select("user_id", "perf_addr_from")
-    df_rslt_to = df_rslt_to.withColumn("perf_addr_to", cal_perf_score_udf("pos_to", "n_total")) \
-                           .select("user_id", "perf_addr_to")
-
-    df1 = df_from.select("user_id", F.col("from_address").alias("address"), F.col("pos_from").alias("pos_addr"))
-    df2 = df_to.select("user_id", F.col("to_address").alias("address"), F.col("pos_to").alias("pos_addr"))
-    df0 = df1.unionByName(df2).cache()
-
-    df_addr = df0.groupBy("user_id", "address").agg(F.sum("pos_addr").alias("pos_addr"))
-    df_user = df0.groupBy("user_id").agg(F.sum("pos_addr").alias("n_total"))
-
-    df_rslt_addr = df_addr.join(df_user, ["user_id"])
-    df_rslt_addr = df_rslt_addr.withColumn("perf_addr", cal_perf_score_udf("pos_addr", "n_total")) \
-                               .select("user_id", "perf_addr")
+    df_from = df_from.select("user_id", F.col("pos").alias("weight"), F.col("address"))
+    df_to = df_to.select("user_id", F.col("pos").alias("weight"), F.col("address"))
+    df0 = df_from.unionByName(df_to)
+    (df_rslt_addr, df_addr) = process_compute_perference(df0.select("user_id", "weight", F.col("address")), "perf_addr", cal_perf_score_udf, proc_merge_rslt_udf)
 
     result_df = df_rslt_addr.join(df_rslt_from, "user_id", "left").join(df_rslt_to, "user_id", "left") \
                             .select("user_id", "perf_addr", "perf_addr_from", "perf_addr_to")
@@ -76,4 +81,3 @@ if __name__ == "__main__":
     current_date = sys.argv[1]
     # current_date = '2025-09-06'
     main(current_date)
-    
