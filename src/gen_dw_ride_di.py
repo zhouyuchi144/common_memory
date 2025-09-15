@@ -189,8 +189,10 @@ def main(current_date):
             lit(0).alias("order_status"),
             col("param_from_address").alias("from_address"),
             col("param_from_city_code").alias("from_city_code"),
+            col("param_from_coordinate").alias("from_coordinate"),
             col("param_to_address").alias("to_address"),
             col("param_to_city_code").alias("to_city_code"),
+            col("param_to_coordinate").alias("to_coordinate"),
             col("param_update_time").alias("update_time")
         )
 
