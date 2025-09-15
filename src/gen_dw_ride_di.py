@@ -25,7 +25,7 @@ def parse_parameters(parameters_str):
                 property_value = item.get("propertyValue", "{}")
                 try:
                     property_value_dict = json.loads(property_value)
-                    from_address = property_value_dict.get("label", "")
+                    from_address = property_value_dict.get("name", "")
                     from_city_code = property_value_dict.get("cityCode", "")
                 except:
                     pass
@@ -34,7 +34,7 @@ def parse_parameters(parameters_str):
                 property_value = item.get("propertyValue", "{}")
                 try:
                     property_value_dict = json.loads(property_value)
-                    to_address = property_value_dict.get("label", "")
+                    to_address = property_value_dict.get("name", "")
                     to_city_code = property_value_dict.get("cityCode", "")
                 except:
                     pass
