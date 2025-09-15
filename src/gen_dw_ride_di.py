@@ -178,8 +178,8 @@ def main(current_date):
             when(col("wf_instance_id").isNotNull(), col("order_update_time")).otherwise(col("param_update_time"))
         ).select(
             "instance_id", "user_id", "order_status",
-            "from_address", "from_city_code",
-            "to_address", "to_city_code", "update_time"
+            "from_address", "from_city_code", "from_coordinate",
+            "to_address", "to_city_code", "to_coordinate", "update_time"
         )
     except Exception as e:
         # 订单文件为空，直接使用参数文件数据
