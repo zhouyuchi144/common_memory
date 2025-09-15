@@ -25,17 +25,18 @@ def proc_merge_rslt(msgs):
     for msg in msgs:
         value = msg.value
         value["name"] = msg.name
+        value["coordinate"] = msg.coordinate
         rslt.append(value)
     return json.dumps(rslt, ensure_ascii=False)
 
 def process_compute_perference(df, perf_name, cal_perf_score_udf, proc_merge_rslt_udf):
     df = df.filter(F.col("address").isNotNull())
-    df = df.groupBy("user_id", "address").agg(F.sum("weight").alias("pos")).cache()
+    df = df.groupBy("user_id", "address", "coordinate").agg(F.sum("weight").alias("pos")).cache()
     df_total = df.groupBy("user_id").agg(F.sum("pos").alias("n"))
     df_rslt = df.join(df_total, ["user_id"])
     df_rslt = df_rslt.withColumn("perf_addr", cal_perf_score_udf("pos", "n"))
     df_rslt = df_rslt.groupBy("user_id") \
-        .agg(F.collect_list(F.struct(F.col("address").alias("name"), F.col("perf_addr").alias("value"))).alias("msgs"))
+        .agg(F.collect_list(F.struct(F.col("address").alias("name"), F.col("coordinate"), F.col("perf_addr").alias("value"))).alias("msgs"))
     df_rslt = df_rslt.withColumn(perf_name, proc_merge_rslt_udf(F.col("msgs")))
     return (df_rslt, df)
 
@@ -63,11 +64,11 @@ def main(current_date):
     df = df.withColumn("weight", F.col("w") * F.col("decay"))
     df = df.cache()
 
-    (df_rslt_from, df_from) = process_compute_perference(df.select("user_id", "weight", F.col("from_address").alias("address")), "perf_addr_from", cal_perf_score_udf, proc_merge_rslt_udf)
-    (df_rslt_to, df_to) = process_compute_perference(df.select("user_id", "weight", F.col("to_address").alias("address")), "perf_addr_to", cal_perf_score_udf, proc_merge_rslt_udf)
+    (df_rslt_from, df_from) = process_compute_perference(df.select("user_id", "weight", F.col("from_address").alias("address"), F.col("from_coordinate").alias("coordinate")), "perf_addr_from", cal_perf_score_udf, proc_merge_rslt_udf)
+    (df_rslt_to, df_to) = process_compute_perference(df.select("user_id", "weight", F.col("to_address").alias("address"), F.col("to_coordinate").alias("coordinate")), "perf_addr_to", cal_perf_score_udf, proc_merge_rslt_udf)
 
-    df_from = df_from.select("user_id", F.col("pos").alias("weight"), F.col("address"))
-    df_to = df_to.select("user_id", F.col("pos").alias("weight"), F.col("address"))
+    df_from = df_from.select("user_id", F.col("pos").alias("weight"), F.col("address"), F.col("coordinate"))
+    df_to = df_to.select("user_id", F.col("pos").alias("weight"), F.col("address"), F.col("coordinate"))
     df0 = df_from.unionByName(df_to)
     (df_rslt_addr, df_addr) = process_compute_perference(df0.select("user_id", "weight", F.col("address")), "perf_addr", cal_perf_score_udf, proc_merge_rslt_udf)
 
