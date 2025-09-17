@@ -56,14 +56,14 @@ def main(current_date):
     current_date_col = F.to_date(F.lit(current_date))
     df = df.withColumn("create_date", F.to_date("create_date")) \
            .withColumn("days", F.datediff(current_date_col, "create_date")) \
-           .withColumn("decay", F.pow(0.5, F.col("days") / 90)) \
+           .withColumn("decay", F.pow(0.96, F.col("days") / 90)) \
            .withColumn("decay", F.when(F.col("decay") < 0, 0).otherwise(F.col("decay"))) \
            .withColumn("intent_id", F.col("intent_id").cast("string"))
     df = df.withColumn("w", F.when((F.col("intent_id") == "10007"), 1.0)
-                             .when(F.col("intent_id") == "10012", 0.8)
-                             .when((F.col("intent_id") == "10008"), 0.1)
-                             .when(F.col("intent_id") == "10009", 0.06)
-                             .when(F.col("intent_id") == "10004", 0.05)
+                             .when(F.col("intent_id") == "10012", 0.1)
+                             .when((F.col("intent_id") == "10008"), 0.04)
+                             .when(F.col("intent_id") == "10009", 0.02)
+                             .when(F.col("intent_id") == "10004", 0.01)
                              .otherwise(0.0))
     df = df.withColumn("weight", F.col("w") * F.col("decay"))
     df = df.cache()
