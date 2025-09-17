@@ -170,7 +170,6 @@ def main(current_date):
     filtered_df = df.filter(col("msg_type") == "must") \
         .withColumn("intent_id", col("intent_id").cast("string")) \
         .withColumn("user_id", col("user_id").cast("string")) \
-        .filter(col("intent_id") != "10007") \
         .withColumn("id", col("id").cast("int"))
 
     # 按用户ID分组，收集消息历史
