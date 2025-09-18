@@ -115,6 +115,7 @@ def comp_match_addr_info(addr_query, target_addrs, perf_target):
     return rslt
 
 def proc_merge_perf(perf_addr, perf_addr_label):
+    perf_addr = json.loads(perf_addr)
     perf_addr_label = json.loads(perf_addr_label)
     rslt_perf_label = []
     perf_label = {home["name"]: home for home in perf_addr_label if home.get("name")}
