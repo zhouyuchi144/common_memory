@@ -115,13 +115,14 @@ def comp_match_addr_info(addr_query, target_addrs, perf_target):
     return rslt
 
 def proc_merge_perf(perf_addr, perf_addr_label):
+    perf_addr_label = json.loads(perf_addr_label)
     rslt_perf_label = []
     perf_label = {home["name"]: home for home in perf_addr_label if home.get("name")}
     labels = perf_label.keys()
     for addr in perf_addr:
         tmp_rslt = comp_match_addr_info(addr, labels, perf_label)
         if tmp_rslt: rslt_perf_label.append(tmp_rslt)
-    return rslt_perf_label
+    return json.dumps(rslt_perf_label, ensure_ascii=False)
 
 def process_compute_perference(df, perf_name, cal_perf_score_udf, proc_merge_rslt_udf):
     df = df.filter(F.col("address").isNotNull())
