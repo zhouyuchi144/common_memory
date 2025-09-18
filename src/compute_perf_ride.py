@@ -113,6 +113,7 @@ def comp_match_addr_info(addr_query, target_addrs, perf_target):
         rslt["name"] = addr_query["name"]
         rslt["wilson_score"] = addr_query["wilson_score"] * perf_target[max_home]["wilson_score"]
         rslt["percent_score"] = addr_query["percent_score"] * perf_target[max_home]["percent_score"]
+        rslt["coordinate"] = addr_query["coordinate"]
     return rslt
 
 def proc_merge_perf(perf_addr, perf_addr_label):
