@@ -26,7 +26,7 @@ def llm_rerank_interface(query, documents, model="gte-rerank-v2"):
 
 def rerank_rag_recall(query_content, contents):
     result = llm_rerank_interface(query_content, contents)
-    print(result)
+    # print(result)
     ultra_cs = result[0].get('relevance_score', 0.0)
     super_match_contents1 = set()
     match_contents2 = set()
@@ -72,10 +72,11 @@ def proc_rule_match_addr(query_addr: str, recall_addrs: List[str]) -> List[str]:
 def find_match_addr(query_addr: str, recall_addrs: List[str]) -> List[str]:
     rule_super_match_addrs, rule_match_addrs = proc_rule_match_addr(query_addr, recall_addrs)
     if len(query_addr) <= 2: return rule_super_match_addrs
-
-    match_addrs = rerank_rag_recall(query_addr, rule_super_match_addrs + rule_match_addrs)
-    return list(set(rule_super_match_addrs + match_addrs))
-
+    rule_match_addrs = rule_super_match_addrs + rule_match_addrs
+    if rule_match_addrs:
+        match_addrs = rerank_rag_recall(query_addr, rule_super_match_addrs + rule_match_addrs)
+        if match_addrs: return list(set(rule_super_match_addrs + match_addrs))
+    return rule_match_addrs
 
 def cal_wilson_score(pos, n):
     if n == 0: return 0.0
@@ -115,6 +116,7 @@ def comp_match_addr_info(addr_query, target_addrs, perf_target):
     return rslt
 
 def proc_merge_perf(perf_addr, perf_addr_label):
+    if not perf_addr or not perf_addr_label: return json.dumps([])
     perf_addr = json.loads(perf_addr)
     perf_addr_label = json.loads(perf_addr_label)
     rslt_perf_label = []
@@ -142,6 +144,7 @@ def main(current_date):
     file_input_label = f"/data/up_perf_label_da/partition_date={current_date}/"
     file_output = f"/data/up_perf_ride_da/partition_date={current_date}/"
     print(file_input)
+    print(file_input_label)
     print(file_output)
 
     cal_perf_score_udf = F.udf(cal_perf_score, MapType(StringType(), FloatType()))
