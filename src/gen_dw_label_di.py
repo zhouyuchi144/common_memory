@@ -155,8 +155,8 @@ def main(current_date):
     # 初始化 SparkSession
     spark = SparkSession.builder.appName("ExtractUserProfileProcess").getOrCreate()
     # 读取参数文件
-    file_chat_hist = f"/data/chat_hist/partition_date={current_date}/"
-    file_dw_label = f"/data/dw_label_di/partition_date={current_date}/"
+    file_chat_hist = f"hdfs://localhost:9000/data/chat_hist/partition_date={current_date}/"
+    file_dw_label = f"hdfs://localhost:9000/data/dw_label_di/partition_date={current_date}/"
     print(file_chat_hist)
     print(file_dw_label)
 

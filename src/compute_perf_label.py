@@ -40,8 +40,8 @@ def process_compute_perference(df, perf_name, cal_perf_score_udf, proc_merge_rsl
     return df_rslt
 
 def main(current_date):
-    file_input = f"/data/dw_label_di/"
-    file_output = f"/data/up_perf_label_da/partition_date={current_date}/"
+    file_input = f"hdfs://localhost:9000/data/dw_label_di/"
+    file_output = f"hdfs://localhost:9000/data/up_perf_label_da/partition_date={current_date}/"
     print(file_input)
     print(file_output)
 
